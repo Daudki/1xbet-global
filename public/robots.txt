@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://sportsbet-tips.com/sitemap.xml
