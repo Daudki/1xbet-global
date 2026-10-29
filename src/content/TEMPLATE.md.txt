@@ -1,0 +1,10 @@
+---
+title: Arsenal vs Chelsea Prediction & Betting Tips
+description: One sentence (max ~155 characters) that appears in Google results.
+date: 2026-10-30
+category: Match Previews
+---
+
+Write the article in Markdown. Use ## for sections, - for bullet lists.
+Save as src/content/posts/arsenal-vs-chelsea-prediction.md
+(the file name becomes the URL: /blog/arsenal-vs-chelsea-prediction)
