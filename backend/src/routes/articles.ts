@@ -11,7 +11,6 @@ export const articlesRouter = Router()
 interface Row {
   id: string
   author_id: string
-  author_name: string
   slug: string
   title: string
   description: string
@@ -25,7 +24,7 @@ interface Row {
   published_at: Date | null
 }
 
-const COLUMNS = `a.id, a.author_id, u.name AS author_name, a.slug, a.title, a.description, a.category, a.body,
+const COLUMNS = `a.id, a.author_id, a.slug, a.title, a.description, a.category, a.body,
   a.status, a.cover_url, a.cover_public_id, a.created_at, a.updated_at, a.published_at`
 const FROM = "FROM articles a JOIN users u ON u.id = a.author_id"
 
@@ -37,7 +36,6 @@ const toItem = (r: Row, withBody: boolean) => ({
   category: r.category,
   status: r.status,
   cover: r.cover_url && r.cover_public_id ? { url: r.cover_url, publicId: r.cover_public_id } : null,
-  author: r.author_name,
   createdAt: r.created_at.toISOString(),
   updatedAt: r.updated_at?.toISOString() ?? null,
   publishedAt: r.published_at?.toISOString() ?? null,

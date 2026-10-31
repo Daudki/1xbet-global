@@ -1,4 +1,5 @@
 import { marked } from "marked";
+import { embedVideos } from "./lib/video";
 import api from "./content/articles.json";
 
 export type Post = {
@@ -29,10 +30,7 @@ function parse(file: string, src: string): Post {
         .replace(/^["']|["']$/g, "");
   });
   const body = m ? m[2] : src;
-  const html = (marked.parse(body, { async: false }) as string).replace(
-    /<a href="(https?:)/g,
-    '<a target="_blank" rel="sponsored nofollow noopener" href="$1'
-  );
+  const html = embedVideos(link(marked.parse(body, { async: false }) as string));
   return {
     slug: file.split("/").pop()!.replace(/\.md$/, ""),
     title: meta.title ?? "Untitled",
@@ -55,7 +53,7 @@ const fromApi: Post[] = (
   category: a.category,
   date: a.date,
   cover: a.cover,
-  html: link(marked.parse(a.body, { async: false }) as string),
+  html: embedVideos(link(marked.parse(a.body, { async: false }) as string)),
 }));
 const seen = new Set(fromApi.map((a) => a.slug));
 

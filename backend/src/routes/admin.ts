@@ -9,6 +9,12 @@ export const adminRouter = Router()
 
 adminRouter.use("/admin", requireAuth, requireAdmin)
 
+/** The owner account is invisible to, and unmanageable by, every other admin. */
+async function viewerIsOwner(userId: string) {
+  const { rows } = await pool.query<{ is_owner: boolean }>("SELECT is_owner FROM users WHERE id = $1", [userId])
+  return rows[0]?.is_owner === true
+}
+
 interface AdminUserRow {
   id: string
   email: string
@@ -36,9 +42,11 @@ const toAdminUser = (r: AdminUserRow) => ({
   postCount: r.post_count,
 })
 
-adminRouter.get("/admin/users", async (_req, res) => {
+adminRouter.get("/admin/users", async (req, res) => {
+  const owner = await viewerIsOwner(req.user!.id)
   const { rows } = await pool.query<AdminUserRow>(
-    `SELECT ${USER_COLUMNS} FROM users u ORDER BY u.created_at ASC`,
+    `SELECT ${USER_COLUMNS} FROM users u WHERE ($1 OR NOT u.is_owner) ORDER BY u.created_at ASC`,
+    [owner],
   )
   res.json({ ok: true, users: rows.map(toAdminUser) })
 })
@@ -94,9 +102,9 @@ adminRouter.patch("/admin/users/:id", async (req, res) => {
             role = COALESCE($3, role),
             active = COALESCE($4, active),
             token_version = CASE WHEN $4 = false THEN token_version + 1 ELSE token_version END
-      WHERE id = $1
+      WHERE id = $1 AND ($5 OR NOT is_owner)
   RETURNING id`,
-    [id, data.name ?? null, data.role ?? null, data.active ?? null],
+    [id, data.name ?? null, data.role ?? null, data.active ?? null, await viewerIsOwner(req.user!.id)],
   )
   if (!rows[0]) throw new HttpError(404, "User not found.")
 
@@ -113,8 +121,8 @@ adminRouter.post("/admin/users/:id/reset-password", async (req, res) => {
   const { rowCount } = await pool.query(
     `UPDATE users
         SET password_hash = $2, must_change_password = true, token_version = token_version + 1
-      WHERE id = $1`,
-    [id, await hashPassword(temporaryPassword)],
+      WHERE id = $1 AND ($3 OR NOT is_owner)`,
+    [id, await hashPassword(temporaryPassword), await viewerIsOwner(req.user!.id)],
   )
   if (!rowCount) throw new HttpError(404, "User not found.")
   res.json({ ok: true, temporaryPassword })

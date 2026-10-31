@@ -1,15 +1,18 @@
 // Shared by the sitemap and pre-render scripts: loads every post (API articles + .md files).
 import { readdirSync, readFileSync } from "node:fs";
 import { marked } from "marked";
+import { embedVideos } from "../src/lib/video.js";
 
 export const cfg = readFileSync("src/config.ts", "utf8");
 export const SITE_URL = cfg.match(/SITE_URL = "([^"]+)"/)[1];
 export const SITE_NAME = cfg.match(/SITE_NAME = "([^"]+)"/)[1];
 
 export const render = (md) =>
-  marked
-    .parse(md, { async: false })
-    .replace(/<a href="(https?:)/g, '<a target="_blank" rel="sponsored nofollow noopener" href="$1');
+  embedVideos(
+    marked
+      .parse(md, { async: false })
+      .replace(/<a href="(https?:)/g, '<a target="_blank" rel="sponsored nofollow noopener" href="$1')
+  );
 
 export function loadPosts() {
   const dir = "src/content/posts";

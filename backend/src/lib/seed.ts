@@ -17,7 +17,7 @@ export async function seedFirstAdmin() {
   }
 
   await pool.query(
-    "INSERT INTO users (email, name, password_hash, role) VALUES ($1, $2, $3, 'admin')",
+    "INSERT INTO users (email, name, password_hash, role, is_owner) VALUES ($1, $2, $3, 'admin', true)",
     [env.ADMIN_EMAIL.trim().toLowerCase(), env.ADMIN_NAME.trim() || "Admin", await hashPassword(env.ADMIN_PASSWORD)],
   )
   console.log(`First admin created: ${env.ADMIN_EMAIL.trim().toLowerCase()}`)

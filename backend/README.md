@@ -25,3 +25,11 @@ Express 5 + TypeScript + Postgres. Handles admin login, articles and cover/inlin
 - Writers (Bearer token): `GET/POST /api/manage/articles`, `GET/PATCH/DELETE /api/manage/articles/:id`
 - Auth: `POST /api/auth/login`, `GET /api/auth/me`, `POST /api/auth/change-password`
 - Admin only: `/api/admin/users` (create, disable, reset users)
+
+## Owner account and the client
+The account created from `ADMIN_EMAIL` is flagged as the **owner**. Other admins do not see it in the Users list and cannot change it. Add the client from **Admin > Users** as an **Admin**; he gets a temporary password and must choose his own at first sign-in. He can then add, disable and reset people himself.
+
+Tell the client that a maintenance (owner) account exists. If you would rather not keep one, disable or remove it after handover.
+
+## Videos
+On its own line in an article, paste a YouTube, Vimeo, Facebook or direct `.mp4`/`.webm` link. The site shows a player and a link to the source. Other links (TikTok, Instagram and so on) stay normal links.
