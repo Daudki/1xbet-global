@@ -47,6 +47,12 @@ authRouter.post("/auth/login", loginLimiter, async (req, res) => {
   res.json({ ok: true, token: signToken(user), user: publicUser(user) })
 })
 
+// Real sign-out: bumping token_version makes every token issued so far stop working.
+authRouter.post("/auth/logout", requireAuthLoose, async (req, res) => {
+  await pool.query("UPDATE users SET token_version = token_version + 1 WHERE id = $1", [req.user!.id])
+  res.json({ ok: true })
+})
+
 authRouter.get("/auth/me", requireAuthLoose, (req, res) => {
   res.json({ ok: true, user: publicUser(req.user!) })
 })

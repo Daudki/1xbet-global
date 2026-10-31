@@ -23,7 +23,10 @@ export async function api<T = Record<string, unknown>>(
     throw new Error("Can't reach the server. Check your connection.");
   }
   const data = await res.json().catch(() => ({}));
-  if (res.status === 401 && opts.auth) setToken(null);
+  if (res.status === 401 && opts.auth) {
+    setToken(null);
+    window.dispatchEvent(new Event("sb:signed-out"));
+  }
   if (!res.ok) throw new Error(data?.message || "Something went wrong.");
   return data as T;
 }

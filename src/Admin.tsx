@@ -559,7 +559,36 @@ export default function Admin() {
     api<{ profile: Profile }>("/api/profile", { auth: true }).then((r) => setProfile(r.profile)).catch(() => {});
   }, [ok]);
 
-  const signOut = () => { setToken(null); setMe(null); setProfile(null); };
+  const clear = useCallback(() => { setMe(null); setProfile(null); }, []);
+  const signOut = () => {
+    api("/api/auth/logout", { method: "POST", auth: true }).catch(() => {});
+    setToken(null);
+    clear();
+  };
+  // The server says the session is over (expired, disabled or password changed elsewhere).
+  useEffect(() => {
+    const h = () => { clear(); push("Your session ended. Please sign in again.", true); };
+    window.addEventListener("sb:signed-out", h);
+    return () => window.removeEventListener("sb:signed-out", h);
+  }, [clear, push]);
+  // Sign out after 30 minutes without any activity.
+  useEffect(() => {
+    if (!me) return;
+    let t = 0;
+    const arm = () => {
+      window.clearTimeout(t);
+      t = window.setTimeout(() => {
+        api("/api/auth/logout", { method: "POST", auth: true }).catch(() => {});
+        setToken(null);
+        clear();
+        push("Signed out after 30 minutes of inactivity.");
+      }, 30 * 60 * 1000);
+    };
+    const events = ["pointerdown", "keydown", "scroll"];
+    events.forEach((e) => window.addEventListener(e, arm, { passive: true }));
+    arm();
+    return () => { window.clearTimeout(t); events.forEach((e) => window.removeEventListener(e, arm)); };
+  }, [me?.id, clear, push]);
   const tab = ({ isActive }: { isActive: boolean }) =>
     `flex flex-col items-center gap-0.5 px-3 py-1 text-xs md:flex-row md:gap-2 md:text-sm ${isActive ? "text-[#8db4ff]" : "text-white/50 hover:text-white"}`;
   const links = me && (
