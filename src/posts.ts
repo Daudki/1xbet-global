@@ -1,4 +1,5 @@
 import { marked } from "marked";
+import api from "./content/articles.json";
 
 export type Post = {
   slug: string;
@@ -6,6 +7,7 @@ export type Post = {
   description: string;
   date: string;
   category: string;
+  cover?: string | null;
   html: string;
 };
 
@@ -41,6 +43,25 @@ function parse(file: string, src: string): Post {
   };
 }
 
-export const posts: Post[] = Object.entries(raw)
-  .map(([f, s]) => parse(f, s))
-  .sort((a, b) => b.date.localeCompare(a.date));
+const link = (h: string) =>
+  h.replace(/<a href="(https?:)/g, '<a target="_blank" rel="sponsored nofollow noopener" href="$1');
+
+const fromApi: Post[] = (
+  api as { slug: string; title: string; description: string; category: string; date: string; cover: string | null; body: string }[]
+).map((a) => ({
+  slug: a.slug,
+  title: a.title,
+  description: a.description,
+  category: a.category,
+  date: a.date,
+  cover: a.cover,
+  html: link(marked.parse(a.body, { async: false }) as string),
+}));
+const seen = new Set(fromApi.map((a) => a.slug));
+
+export const posts: Post[] = [
+  ...fromApi,
+  ...Object.entries(raw)
+    .map(([f, s]) => parse(f, s))
+    .filter((p) => !seen.has(p.slug)),
+].sort((a, b) => b.date.localeCompare(a.date));

@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "prebuild": "node scripts/sitemap.mjs"
+    "prebuild": "node scripts/fetch-articles.mjs && node scripts/sitemap.mjs",
+    "predev": "node scripts/fetch-articles.mjs",
+    "postbuild": "node scripts/prerender.mjs"
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",

@@ -136,6 +136,9 @@ export function BlogPost() {
           {post.category} · {post.date}
         </p>
         <h1 className="mt-2 text-3xl font-bold">{post.title}</h1>
+        {post.cover && (
+          <img src={post.cover} alt={post.title} className="mt-6 w-full rounded-xl" />
+        )}
         <div
           className="post-body mt-6"
           dangerouslySetInnerHTML={{ __html: post.html }}

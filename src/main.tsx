@@ -5,12 +5,14 @@ import { Analytics } from "@vercel/analytics/react";
 import "./index.css";
 import App from "./App.tsx";
 import { BlogIndex, BlogPost } from "./Blog.tsx";
+import Admin from "./Admin.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<App />} />
+        <Route path="/admin/*" element={<Admin />} />
         <Route path="/blog" element={<BlogIndex />} />
         <Route path="/blog/:slug" element={<BlogPost />} />
         <Route path="*" element={<BlogIndex />} />

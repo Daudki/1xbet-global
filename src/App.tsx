@@ -173,7 +173,7 @@ function App() {
               </h1>
 
               <p className="mt-6 max-w-xl text-lg leading-8 text-white/60">
-                Sports betting, live betting, casino and promotions — all in
+                Sports betting, live betting, casino and promotions, all in
                 one place, available worldwide.
               </p>
 
