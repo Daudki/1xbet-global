@@ -8,6 +8,7 @@ import { authRouter } from "./routes/auth.js"
 import { articlesRouter } from "./routes/articles.js"
 import { uploadsRouter } from "./routes/uploads.js"
 import { adminRouter } from "./routes/admin.js"
+import { profileRouter } from "./routes/profile.js"
 
 const app = express()
 app.set("trust proxy", 1) // correct client IPs behind Render/Railway/Fly for rate limiting
@@ -37,6 +38,7 @@ app.use(async (_req, _res, next) => {
 app.use("/api", authRouter)
 app.use("/api", articlesRouter)
 app.use("/api", uploadsRouter)
+app.use("/api", profileRouter)
 app.use("/api", adminRouter)
 
 app.use((_req, res) => {

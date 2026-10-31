@@ -25,9 +25,10 @@ interface AdminUserRow {
   created_at: Date
   last_login_at: Date | null
   post_count: number
+  avatar_url: string | null
 }
 
-const USER_COLUMNS = `u.id, u.email, u.name, u.role, u.active, u.must_change_password, u.created_at, u.last_login_at,
+const USER_COLUMNS = `u.id, u.email, u.name, u.role, u.active, u.must_change_password, u.created_at, u.last_login_at, u.avatar_url,
   (SELECT count(*)::int FROM articles i WHERE i.author_id = u.id) AS post_count`
 
 const toAdminUser = (r: AdminUserRow) => ({
@@ -40,6 +41,7 @@ const toAdminUser = (r: AdminUserRow) => ({
   createdAt: r.created_at.toISOString(),
   lastLoginAt: r.last_login_at ? r.last_login_at.toISOString() : null,
   postCount: r.post_count,
+  avatarUrl: r.avatar_url,
 })
 
 adminRouter.get("/admin/users", async (req, res) => {
