@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, Route, Routes, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
 import { api, getToken, setToken } from "./lib/api";
 import { uploadImage, type Uploaded } from "./lib/uploads";
@@ -178,6 +178,7 @@ function Editor() {
 }
 
 export default function Admin() {
+  const nav = useNavigate();
   const [authed, setAuthed] = useState(Boolean(getToken()));
   useEffect(() => {
     document.title = "Admin";
@@ -191,7 +192,7 @@ export default function Admin() {
     <div className="min-h-screen bg-[#05080f] text-white">
       <div className="mx-auto max-w-3xl px-4 py-8">
         {!authed ? (
-          <Login onDone={() => setAuthed(true)} />
+          <Login onDone={() => { setAuthed(true); nav("/admin", { replace: true }); }} />
         ) : (
           <>
             <button className="mb-4 text-xs text-white/50 underline"
@@ -200,6 +201,7 @@ export default function Admin() {
               <Route index element={<List />} />
               <Route path="new" element={<Editor />} />
               <Route path="edit/:id" element={<Editor />} />
+              <Route path="*" element={<Navigate to="/admin" replace />} />
             </Routes>
           </>
         )}
