@@ -2,12 +2,13 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
 import {
-  Bold, Camera, ExternalLink, FileText, Heading2, Image as ImageIcon, Italic, Link2,
+  Bold, Camera, ExternalLink, Eye, EyeOff, Trophy, FileText, Heading2, Image as ImageIcon, Italic, Link2,
   List as ListIcon, LogOut, Pencil, Plus, Quote, Search, Trash2, User as UserIcon, Users as UsersIcon, Video,
 } from "lucide-react";
 import { api, getToken, setToken } from "./lib/api";
 import { uploadImage, type Uploaded } from "./lib/uploads";
 import { embedVideos, parseVideo } from "./lib/video";
+import { LOGIN_IMAGE, SITE_NAME } from "./config";
 
 /* ---------- shared look ---------- */
 const card = "rounded-2xl border border-white/10 bg-white/[0.04]";
@@ -64,9 +65,36 @@ function Confirm({ ask, close }: { ask: Ask; close: () => void }) {
 const Skeleton = () => <div className="h-20 animate-pulse rounded-2xl bg-white/5" />;
 
 /* ---------- sign in / password ---------- */
+function AuthShell({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden>
+        <span className="auth-orb auth-a" />
+        <span className="auth-orb auth-b" />
+        <svg className="auth-pitch" viewBox="0 0 400 400" fill="none" stroke="white" strokeWidth="2">
+          <circle cx="200" cy="200" r="120" />
+          <circle cx="200" cy="200" r="6" fill="white" />
+          <line x1="0" y1="200" x2="400" y2="200" />
+          <rect x="110" y="0" width="180" height="70" />
+          <rect x="110" y="330" width="180" height="70" />
+        </svg>
+      </div>
+      <div className="auth-card relative z-10 mx-auto mt-8 max-w-sm sm:mt-16">
+        <div className="mb-6 flex flex-col items-center gap-3 text-center">
+          <span className="auth-ball flex h-14 w-14 items-center justify-center rounded-2xl bg-[#0a5cff] shadow-lg shadow-[#0a5cff]/40"><Trophy /></span>
+          <p className="text-sm text-white/60">{SITE_NAME}</p>
+        </div>
+        {LOGIN_IMAGE && <img src={LOGIN_IMAGE} alt="" className="mb-4 w-full rounded-2xl" />}
+        <div className={`${card} space-y-3 p-6 backdrop-blur`}>{children}</div>
+      </div>
+    </>
+  );
+}
+
 function Login({ onDone }: { onDone: (u: Me) => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const go = async () => {
@@ -80,15 +108,19 @@ function Login({ onDone }: { onDone: (u: Me) => void }) {
     setBusy(false);
   };
   return (
-    <div className={`${card} mx-auto mt-16 max-w-sm space-y-3 p-6`}>
+    <AuthShell>
       <h1 className="text-2xl font-bold">Welcome back</h1>
       <p className="text-sm text-white/60">Sign in to manage your articles.</p>
       <input className={field} placeholder="Email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <input className={field} type="password" placeholder="Password" autoComplete="current-password" value={password}
-        onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} />
-      {err && <p className="text-sm text-red-400">{err}</p>}
-      <button className={`${primary} w-full`} disabled={busy} onClick={go}>{busy ? "Signing in…" : "Sign in"}</button>
-    </div>
+      <div className="relative">
+        <input className={`${field} pr-11`} type={show ? "text" : "password"} placeholder="Password" autoComplete="current-password"
+          value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={(e) => e.key === "Enter" && go()} />
+        <button type="button" aria-label={show ? "Hide password" : "Show password"} className="absolute right-3 top-2.5 text-white/50 hover:text-white"
+          onClick={() => setShow(!show)}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button>
+      </div>
+      {err && <p key={err} className="auth-shake text-sm text-red-400">{err}</p>}
+      <button className={`${primary} shine w-full`} disabled={busy} onClick={go}>{busy ? "Signing in…" : "Sign in"}</button>
+    </AuthShell>
   );
 }
 
@@ -113,8 +145,8 @@ function ChangePassword({ forced, onDone }: { forced: boolean; onDone: (u: Me) =
     } catch (e) { setErr((e as Error).message); }
     setBusy(false);
   };
-  return (
-    <div className={forced ? `${card} mx-auto mt-16 max-w-sm space-y-3 p-6` : "space-y-3"}>
+  const body = (
+    <div className="space-y-3">
       {forced && (
         <>
           <h1 className="text-2xl font-bold">Choose your own password</h1>
@@ -127,6 +159,7 @@ function ChangePassword({ forced, onDone }: { forced: boolean; onDone: (u: Me) =
       <button className={`${primary} ${forced ? "w-full" : ""}`} disabled={busy || !cur || next.length < 10} onClick={go}>Save password</button>
     </div>
   );
+  return forced ? <AuthShell>{body}</AuthShell> : body;
 }
 
 /* ---------- dashboard ---------- */
