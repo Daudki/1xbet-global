@@ -1,9 +1,13 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useReducer, useRef, useState } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useNavigate, useParams } from "react-router-dom";
 import { marked } from "marked";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Image from "@tiptap/extension-image";
+import TurndownService from "turndown";
 import {
-  Bold, Camera, ExternalLink, Eye, EyeOff, Trophy, FileText, Heading2, Image as ImageIcon, Italic, Link2,
-  List as ListIcon, LogOut, Pencil, Plus, Quote, Search, Trash2, User as UserIcon, Users as UsersIcon, Video,
+  Bold, Camera, ExternalLink, Eye, EyeOff, Trophy, FileText, Heading2, Heading3, Image as ImageIcon, Italic, Link2,
+  List as ListIcon, ListOrdered, LogOut, Pencil, Plus, Quote, Redo2, Search, Trash2, Undo2, User as UserIcon, Users as UsersIcon, Video,
 } from "lucide-react";
 import { api, getToken, setToken } from "./lib/api";
 import { uploadImage, type Uploaded } from "./lib/uploads";
@@ -246,20 +250,153 @@ const Count = ({ n, max }: { n: number; max: number }) => (
   <span className={`text-xs ${n > max ? "text-red-400" : "text-white/40"}`}>{n}/{max}</span>
 );
 
+const td = new TurndownService({ headingStyle: "atx", bulletListMarker: "-", codeBlockStyle: "fenced", emDelimiter: "*" });
+
+type Prompt = { title: string; label: string; placeholder: string; ok: string; optional?: boolean; go: (v: string) => void } | null;
+
+function InputModal({ p, close }: { p: Prompt; close: () => void }) {
+  const [v, setV] = useState("");
+  if (!p) return null;
+  const done = () => { setV(""); close(); };
+  const submit = () => {
+    const val = v.trim();
+    if (!val && !p.optional) return;
+    done();
+    p.go(val);
+  };
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={done}>
+      <div className={`${card} w-full max-w-sm bg-[#0b111c] p-5`} onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-bold">{p.title}</h3>
+        <label className="mt-3 block text-sm text-white/60">{p.label}</label>
+        <input autoFocus className={`${field} mt-2`} placeholder={p.placeholder} value={v}
+          onChange={(e) => setV(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} />
+        <div className="mt-5 flex justify-end gap-2">
+          <button className={ghost} onClick={done}>Cancel</button>
+          <button className={primary} onClick={submit}>{p.ok}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Write like in a normal document. The text is stored as Markdown behind the scenes. */
+function RichText({ initial, onChange }: { initial: string; onChange: (md: string) => void }) {
+  const toast = useToast();
+  const [, tick] = useReducer((x: number) => x + 1, 0);
+  const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState(false);
+  const [md, setMd] = useState(initial);
+  const [modal, setModal] = useState<Prompt>(null);
+  const editor = useEditor({
+    extensions: [StarterKit.configure({ heading: { levels: [2, 3] }, link: { openOnClick: false, autolink: true } }), Image],
+    content: marked.parse(initial, { async: false }) as string,
+    editorProps: { attributes: { class: "post-body min-h-80 p-4 outline-none" } },
+    onUpdate: ({ editor: e }) => {
+      const m = td.turndown(e.getHTML());
+      setMd(m);
+      onChange(m);
+    },
+    onTransaction: () => tick(),
+  });
+  if (!editor) return null;
+  const run = () => editor.chain().focus();
+
+  const addLink = () => {
+    if (editor.isActive("link")) { run().extendMarkRange("link").unsetLink().run(); return; }
+    const hasSel = !editor.state.selection.empty;
+    setModal({
+      title: "Add a link", ok: "Add link", placeholder: "https://",
+      label: hasSel ? "Where should the selected words lead to?" : "Paste the web address",
+      go: (raw) => {
+        const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+        if (hasSel) run().extendMarkRange("link").setLink({ href: url }).run();
+        else run().insertContent({ type: "text", text: url, marks: [{ type: "link", attrs: { href: url } }] }).run();
+      },
+    });
+  };
+  const addImage = () => {
+    const i = document.createElement("input");
+    i.type = "file";
+    i.accept = "image/jpeg,image/png,image/webp,image/gif";
+    i.onchange = async () => {
+      if (!i.files?.[0]) return;
+      setBusy(true);
+      try {
+        const u = await uploadImage(i.files[0]);
+        setModal({
+          title: "Describe the picture", ok: "Insert", optional: true, placeholder: "e.g. Arsenal players celebrating",
+          label: "A few words about it (helps Google find your article)",
+          go: (alt) => run().setImage({ src: u.url, alt: alt || "image" }).run(),
+        });
+      } catch (e) { toast((e as Error).message, true); }
+      setBusy(false);
+    };
+    i.click();
+  };
+  const addVideo = () =>
+    setModal({
+      title: "Add a video", ok: "Add video", placeholder: "https://youtube.com/watch?v=…",
+      label: "Paste the video link (YouTube, Vimeo, Facebook or an .mp4 file)",
+      go: (raw) => {
+        const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+        if (!parseVideo(url)) toast("That link can't be shown as a player, so it will appear as a normal link.", true);
+        run().insertContent([
+          { type: "paragraph", content: [{ type: "text", text: url, marks: [{ type: "link", attrs: { href: url } }] }] },
+          { type: "paragraph" },
+        ]).run();
+      },
+    });
+
+  const T = ({ on, active, label, children, off }: { on: () => void; active?: boolean; label: string; children: React.ReactNode; off?: boolean }) => (
+    <button type="button" disabled={off || busy} onClick={on} aria-label={label}
+      className={`flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-2.5 py-1.5 text-[10px] disabled:opacity-30 ${active ? "bg-[#0a5cff]/30 text-white" : "text-white/70 hover:bg-white/10 hover:text-white"}`}>
+      {children}{label}
+    </button>
+  );
+  const words = editor.getText().trim() ? editor.getText().trim().split(/\s+/).length : 0;
+  return (
+    <div className={`${card} overflow-hidden`}>
+      <div className="sticky top-14 z-[5] flex items-center gap-0.5 overflow-x-auto border-b border-white/10 bg-[#0b111c] p-1.5">
+        <T label="Bold" active={editor.isActive("bold")} on={() => run().toggleBold().run()}><Bold size={18} /></T>
+        <T label="Italic" active={editor.isActive("italic")} on={() => run().toggleItalic().run()}><Italic size={18} /></T>
+        <T label="Title" active={editor.isActive("heading", { level: 2 })} on={() => run().toggleHeading({ level: 2 }).run()}><Heading2 size={18} /></T>
+        <T label="Subtitle" active={editor.isActive("heading", { level: 3 })} on={() => run().toggleHeading({ level: 3 }).run()}><Heading3 size={18} /></T>
+        <T label="Bullets" active={editor.isActive("bulletList")} on={() => run().toggleBulletList().run()}><ListIcon size={18} /></T>
+        <T label="Numbers" active={editor.isActive("orderedList")} on={() => run().toggleOrderedList().run()}><ListOrdered size={18} /></T>
+        <T label="Quote" active={editor.isActive("blockquote")} on={() => run().toggleBlockquote().run()}><Quote size={18} /></T>
+        <T label={editor.isActive("link") ? "Unlink" : "Link"} active={editor.isActive("link")} on={addLink}><Link2 size={18} /></T>
+        <T label="Picture" on={addImage}><ImageIcon size={18} /></T>
+        <T label="Video" on={addVideo}><Video size={18} /></T>
+        <T label="Undo" off={!editor.can().undo()} on={() => run().undo().run()}><Undo2 size={18} /></T>
+        <T label="Redo" off={!editor.can().redo()} on={() => run().redo().run()}><Redo2 size={18} /></T>
+        <T label={preview ? "Edit" : "Preview"} active={preview} on={() => setPreview(!preview)}><Eye size={18} /></T>
+      </div>
+      {preview ? (
+        <div className="post-body min-h-80 p-4" dangerouslySetInnerHTML={{ __html: embedVideos(marked.parse(md, { async: false }) as string) }} />
+      ) : (
+        <div className="relative">
+          {editor.isEmpty && <p className="pointer-events-none absolute left-4 top-4 text-white/30">Start writing your article here…</p>}
+          <EditorContent editor={editor} />
+        </div>
+      )}
+      <p className="border-t border-white/10 px-4 py-2 text-xs text-white/40">{words} words · about {Math.max(1, Math.ceil(words / 200))} min read · Ctrl+S saves</p>
+      <InputModal p={modal} close={() => setModal(null)} />
+    </div>
+  );
+}
+
 function Editor() {
   const { id } = useParams();
   const nav = useNavigate();
   const toast = useToast();
-  const ta = useRef<HTMLTextAreaElement>(null);
   const [f, setF] = useState({ title: "", slug: "", description: "", category: "Guides", body: "" });
   const [status, setStatus] = useState<"draft" | "published">("draft");
   const [cover, setCover] = useState<Uploaded | null>(null);
-  const [preview, setPreview] = useState(false);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(Boolean(id));
   const set = (k: keyof typeof f, v: string) => setF((p) => ({ ...p, [k]: v }));
   const slug = f.slug || slugify(f.title);
-  const words = f.body.trim() ? f.body.trim().split(/\s+/).length : 0;
 
   useEffect(() => {
     if (!id) return;
@@ -273,46 +410,17 @@ function Editor() {
       .finally(() => setLoading(false));
   }, [id, toast]);
 
-  const edit = (before: string, after: string, ph: string) => {
-    const t = ta.current;
-    if (!t) return;
-    const { selectionStart: s, selectionEnd: e } = t;
-    const sel = f.body.slice(s, e) || ph;
-    set("body", f.body.slice(0, s) + before + sel + after + f.body.slice(e));
-    requestAnimationFrame(() => { t.focus(); t.setSelectionRange(s + before.length, s + before.length + sel.length); });
-  };
-  const line = (prefix: string, ph: string) => {
-    const t = ta.current;
-    const s = t?.selectionStart ?? f.body.length;
-    const start = f.body.lastIndexOf("\n", s - 1) + 1;
-    set("body", f.body.slice(0, start) + prefix + (f.body.slice(start, s) ? "" : ph) + f.body.slice(start));
-    requestAnimationFrame(() => t?.focus());
-  };
-  const pick = (cb: (u: Uploaded) => void) => {
+  const pickCover = () => {
     const i = document.createElement("input");
     i.type = "file";
     i.accept = "image/jpeg,image/png,image/webp,image/gif";
     i.onchange = async () => {
       if (!i.files?.[0]) return;
       setBusy(true);
-      try { cb(await uploadImage(i.files[0])); } catch (e) { toast((e as Error).message, true); }
+      try { setCover(await uploadImage(i.files[0])); } catch (e) { toast((e as Error).message, true); }
       setBusy(false);
     };
     i.click();
-  };
-  const addImage = () => pick((u) => {
-    const alt = prompt("Describe the image (helps Google):") || "image";
-    set("body", `${f.body}\n\n![${alt}](${u.url})\n`);
-  });
-  const addVideo = () => {
-    const url = prompt("Paste a YouTube, Vimeo, Facebook or .mp4 link:")?.trim();
-    if (!url) return;
-    if (!parseVideo(url) && !confirm("This link can't be shown as a player and will appear as a normal link. Insert anyway?")) return;
-    set("body", `${f.body}\n\n${url}\n`);
-  };
-  const addLink = () => {
-    const url = prompt("Link address (https://…):")?.trim();
-    if (url) edit("[", `](${url})`, "link text");
   };
 
   const save = async (st: "draft" | "published") => {
@@ -337,7 +445,6 @@ function Editor() {
   }, [status]);
 
   if (loading) return <div className="space-y-3"><Skeleton /><Skeleton /></div>;
-  const tool = "rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white";
   return (
     <div className="space-y-4">
       <div className="sticky top-0 z-10 -mx-4 flex items-center gap-2 bg-[#05080f]/90 px-4 py-3 backdrop-blur">
@@ -367,30 +474,10 @@ function Editor() {
       </div>
       <div className="flex items-center gap-3">
         {cover ? <img src={cover.url} alt="" className="h-14 w-24 rounded-lg object-cover" /> : <span className="flex h-14 w-24 items-center justify-center rounded-lg border border-dashed border-white/20 text-xs text-white/40">No cover</span>}
-        <button className={ghost} disabled={busy} onClick={() => pick(setCover)}><Camera size={16} />{cover ? "Change" : "Add cover"}</button>
+        <button className={ghost} disabled={busy} onClick={pickCover}><Camera size={16} />{cover ? "Change" : "Add cover"}</button>
         {cover && <button className="text-sm text-red-400" onClick={() => setCover(null)}>Remove</button>}
       </div>
-      <div className={`${card} overflow-hidden`}>
-        <div className="flex flex-wrap items-center gap-1 border-b border-white/10 p-2">
-          <button className={tool} aria-label="Bold" onClick={() => edit("**", "**", "bold text")}><Bold size={18} /></button>
-          <button className={tool} aria-label="Italic" onClick={() => edit("*", "*", "italic text")}><Italic size={18} /></button>
-          <button className={tool} aria-label="Heading" onClick={() => line("## ", "Heading")}><Heading2 size={18} /></button>
-          <button className={tool} aria-label="List" onClick={() => line("- ", "List item")}><ListIcon size={18} /></button>
-          <button className={tool} aria-label="Quote" onClick={() => line("> ", "Quote")}><Quote size={18} /></button>
-          <button className={tool} aria-label="Link" onClick={addLink}><Link2 size={18} /></button>
-          <button className={tool} aria-label="Image" disabled={busy} onClick={addImage}><ImageIcon size={18} /></button>
-          <button className={tool} aria-label="Video" onClick={addVideo}><Video size={18} /></button>
-          <button className={`${tool} ml-auto text-sm`} onClick={() => setPreview(!preview)}>{preview ? "Edit" : "Preview"}</button>
-        </div>
-        {preview ? (
-          <div className="post-body min-h-80 p-4" dangerouslySetInnerHTML={{ __html: embedVideos(marked.parse(f.body, { async: false }) as string) }} />
-        ) : (
-          <textarea ref={ta} className="min-h-80 w-full resize-y bg-transparent p-4 font-mono text-sm outline-none" value={f.body}
-            placeholder={"Write in Markdown.\n\nTip: paste a YouTube, Vimeo, Facebook or .mp4 link on its own line to show the video."}
-            onChange={(e) => set("body", e.target.value)} />
-        )}
-      </div>
-      <p className="text-xs text-white/40">{words} words · about {Math.max(1, Math.ceil(words / 200))} min read · Ctrl+S saves</p>
+      <RichText initial={f.body} onChange={(md) => set("body", md)} />
     </div>
   );
 }

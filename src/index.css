@@ -46,3 +46,9 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .auth-orb, .auth-pitch, .auth-card, .auth-ball, .auth-shake, .shine:hover::after { animation: none; }
 }
+
+.post-body > :first-child { margin-top: 0; }
+.post-body blockquote { border-left: 3px solid #0a5cff; padding-left: 1rem; margin: 1rem 0; color: rgba(255,255,255,.7); }
+.post-body li > p { margin: 0; }
+.post-body img { display: block; margin: 1rem 0; }
+.ProseMirror img.ProseMirror-selectednode { outline: 2px solid #4d8bff; }

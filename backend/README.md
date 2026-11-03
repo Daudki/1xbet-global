@@ -32,7 +32,7 @@ The account created from `ADMIN_EMAIL` is flagged as the **owner**. Other admins
 Tell the client that a maintenance (owner) account exists. If you would rather not keep one, disable or remove it after handover.
 
 ## Videos
-On its own line in an article, paste a YouTube, Vimeo, Facebook or direct `.mp4`/`.webm` link. The site shows a player and a link to the source. Other links (TikTok, Instagram and so on) stay normal links.
+In the editor tap **Video** and paste a YouTube, Vimeo, Facebook or direct `.mp4`/`.webm` link (or paste such a link on its own line in older Markdown articles). The site shows a player and a link to the source. Other links (TikTok, Instagram and so on) stay normal links.
 
 ## Sessions
 Sign-in lasts `JWT_EXPIRES_IN` (default 12h) and then the server rejects the token. The admin signs out after 30 minutes without activity, and **Sign out** ends the session on the server too (it signs that account out on every device). Check that `JWT_EXPIRES_IN` isn't set to a long value in Render.
